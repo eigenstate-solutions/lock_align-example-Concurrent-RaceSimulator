@@ -65,6 +65,8 @@ Follow the on-screen instructions to interact with the simulation.
 - **Thread Safety**:
   - Ensured race conditions were avoided using proper locking mechanisms.
   - Coordinated racer progress and game master commands efficiently.
+- **Deadlock Safety**:
+  - Utilizes the [**lock_align**](https://github.com/eigenstate-solutions/lock_align) library to enforce a lock-ordering policy.
 
 ## Learning Outcomes
 - Practical experience with concurrency in C++.

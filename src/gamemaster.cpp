@@ -12,17 +12,17 @@
 #include <algorithm>
 #include <thread>
 
-std::mutex GameMaster::queueMutex;
-std::condition_variable GameMaster::queueCondVar;
+lock_align::ordered_mutex<std::mutex, lock_level::queue> GameMaster::queueMutex("queueMutex");
+lock_align::ordered_condition_variable<lock_level::queue_obligation> GameMaster::queueCondVar("queueCondVar");
 std::queue<int> GameMaster::diceRollsQueue;
 bool GameMaster::raceFinished = false;
 std::vector<std::pair<int, std::thread::id>> GameMaster::finishOrder;
 int GameMaster::finishCounter = 0;
 
-GameMaster::GameMaster(int racers) : racersCount(racers) {}
+GameMaster::GameMaster(int racers) : racersCount(racers), finishMutex("finishMutex") {}
 
 void GameMaster::start() {
-    gameMasterThread = std::thread(gameMasterThreadFunction, racersCount);
+    gameMasterThread = lock_align::ordered_thread<>(lock_level::master, gameMasterThreadFunction, racersCount);
 }
 
 void GameMaster::join() {
@@ -32,6 +32,7 @@ void GameMaster::join() {
 }
 
 void GameMaster::gameMasterThreadFunction(int racers) {
+    lock_align::obligation duty = queueCondVar.take_obligation();
     std::random_device rd;
 
     // Source: https://www.geeksforgeeks.org/stdmt19937-class-in-cpp/#
@@ -44,7 +45,7 @@ void GameMaster::gameMasterThreadFunction(int racers) {
 
     while (!raceFinished) {
         int k = diceRollsCount(gen);
-        std::unique_lock<std::mutex> lk(queueMutex);
+        std::unique_lock lk(queueMutex);
         for (int i = 0; i < k; ++i) {
             diceRollsQueue.push(diceRoll(gen));
         }
@@ -61,7 +62,7 @@ void GameMaster::gameMasterThreadFunction(int racers) {
 }
 
 int GameMaster::getDiceRoll() {
-    std::unique_lock<std::mutex> lk(queueMutex);
+    std::unique_lock lk(queueMutex);
     queueCondVar.wait(lk, [] { return !diceRollsQueue.empty() || raceFinished; });
 
     if (raceFinished) {
@@ -74,12 +75,12 @@ int GameMaster::getDiceRoll() {
 }
 
 void GameMaster::notifyFinish(std::thread::id threadID) {
-    std::lock_guard<std::mutex> lk(finishMutex);
+    std::lock_guard lk(finishMutex);
     finishOrder.push_back({finishCounter++, threadID});
 }
 
 void GameMaster::printResults() const {
-    std::lock_guard<std::mutex> lk(finishMutex);
+    std::lock_guard lk(finishMutex);
     int displayCount = 0;
     for (const auto &entry : finishOrder) {
         if (displayCount++ < finishOrder.size()) { 

@@ -1,8 +1,8 @@
 CXX = g++
 
-CXXFLAGS = -std=c++17 -pthread
+CXXFLAGS = -std=c++20
 
-INCLUDES = -I./src
+INCLUDES = -I./src -I/usr/local/include
 
 SRCDIR = src
 
@@ -47,3 +47,7 @@ clean:
 doc:
 	doxygen docConfig
 
+
+obj/gamemaster.o: src/gamemaster.h
+obj/racer.o: src/gamemaster.h src/racer.h
+obj/race.o: src/gamemaster.h src/racer.h

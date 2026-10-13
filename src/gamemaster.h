@@ -8,12 +8,14 @@
 #ifndef GAMEMASTER_H
 #define GAMEMASTER_H
 
-#include <thread>
 #include <queue>
-#include <mutex>
-#include <condition_variable>
+#include <lock_align/ordered_thread.hpp>
+#include <lock_align/ordered_mutex.hpp>
+#include <lock_align/ordered_condition_variable.hpp>
 #include <vector>
 #include <utility>
+
+#include "lock_levels.h"
 
 
 /**
@@ -28,14 +30,14 @@
 class GameMaster {
 private:
     int racersCount;
-    std::thread gameMasterThread;
-    static std::mutex queueMutex;
-    static std::condition_variable queueCondVar;
+    lock_align::ordered_thread<> gameMasterThread;
+    static lock_align::ordered_mutex<std::mutex, lock_level::queue> queueMutex;
+    static lock_align::ordered_condition_variable<lock_level::queue_obligation> queueCondVar;
     static std::queue<int> diceRollsQueue;
     static bool raceFinished;
     static std::vector<std::pair<int, std::thread::id>> finishOrder; // Pair of finish time and racer ID
     static int finishCounter;
-    mutable std::mutex finishMutex;
+    mutable lock_align::ordered_mutex<std::mutex, lock_level::finish> finishMutex;
 
 public:
     /**

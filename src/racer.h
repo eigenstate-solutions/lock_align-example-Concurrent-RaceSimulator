@@ -9,7 +9,7 @@
 #define RACER_H
 
 #include "gamemaster.h"
-#include <thread>
+#include <lock_align/ordered_thread.hpp>
 
 /**
   @class Racer
@@ -21,7 +21,7 @@
 class Racer {
     int id;
     int distance;
-    std::thread racerThread;
+    lock_align::ordered_thread<> racerThread;
     GameMaster& gameMaster;
 
 public:

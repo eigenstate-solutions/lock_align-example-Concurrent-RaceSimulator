@@ -13,14 +13,14 @@
 #include <chrono>
 #include <thread>
 
-std::mutex ioMutex;
+lock_align::ordered_mutex<std::mutex, lock_level::io> ioMutex;
 
 // Racer constructor
 Racer::Racer(int id, GameMaster& gm) : id(id), distance(0), gameMaster(gm) {}
 
 
 void Racer::start() {
-    racerThread = std::thread(&Racer::run, this);
+    racerThread = lock_align::ordered_thread<>(lock_level::racer, &Racer::run, this);
 }
 
 void Racer::join() {
@@ -31,7 +31,7 @@ void Racer::join() {
 
 void Racer::run() {
     {
-        std::unique_lock<std::mutex> lk(ioMutex); // Lock the mutex for I/O operations
+        std::unique_lock lk(ioMutex); // Lock the mutex for I/O operations
         std::cout << "Thread " << std::this_thread::get_id() << " has left the gate.\n";
     }
 
@@ -40,17 +40,16 @@ void Racer::run() {
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> sleepTime(0, 2000);
 
-    while (distance < 20) {
+    while (true) {
         int roll = GameMaster::getDiceRoll();
         distance += roll;
 
         {
-            std::unique_lock<std::mutex> lk(ioMutex); // Lock the mutex for I/O operations
+            std::unique_lock lk(ioMutex); // Lock the mutex for I/O operations
             std::cout << "Thread " << std::this_thread::get_id() << " moved forward " << roll << " spaces.\n";
 
             if (distance >= 20) {
                 std::cout << "Thread " << std::this_thread::get_id() << " has crossed the finish line.\n";
-                gameMaster.notifyFinish(std::this_thread::get_id()); // Pass the thread id
                 break; // Exit the loop since the racer has finished
             }
         } // Mutex automatically releases here due to the scope of unique_lock
@@ -59,6 +58,8 @@ void Racer::run() {
         // Source: https://stackoverflow.com/questions/49071285/sleep-vs-sleep-for
         std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime(gen)));
     }
+
+    gameMaster.notifyFinish(std::this_thread::get_id()); // Pass the thread id
 }
 
 
